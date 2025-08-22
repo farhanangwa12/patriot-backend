@@ -1,7 +1,6 @@
- 
-import { quizModel } from '../models/quizModel.js';
-import { questionModel } from '../models/questionModel.js';
-import openAiService from '../services/openaiService.js';
+import quizModel from '../models/Quiz.js';
+import questionModel from '../models/Question.js';
+import { openAiService } from '../services/openaiService.js';
 
 class QuizService {
   // Membuat kuis baru dan menghasilkan 10 pertanyaan
@@ -24,19 +23,20 @@ class QuizService {
 
       // Validasi jumlah pertanyaan
       if (!Array.isArray(questions) || questions.length !== quiz.total_questions) {
+        console.error(Array.isArray(questions));
         throw new Error('AI  harus menghasilkan tepat 10 pertanyaan');
       }
 
       // Simpan pertanyaan ke database
       const savedQuestions = await Promise.all(
         questions.map(async (q) => {
-          if (!q.question_text || !q.fact_answer || !q.options || !Array.isArray(q.options)) {
+          if (!q.soal || !q.fakta ) {
             throw new Error('Format pertanyaan dari OpenAI tidak valid');
           }
           return await questionModel.createQuestion({
             quiz_id: quiz.id,
-            question_text: q.question_text,
-            fact_answer: q.fact_answer,
+            question_text: q.soal,
+            fact_answer: q.fakta,
             created_by_ai: true,
           });
         })
@@ -61,7 +61,7 @@ class QuizService {
   // Mendapatkan kuis berdasarkan ID beserta pertanyaannya
   async getQuizById(id) {
     try {
-      const quiz = await quizModel.getQuizById(id);
+      const quiz = await quizModel.findQuizById(id);
       if (!quiz) {
         throw new Error('Kuis tidak ditemukan');
       }
@@ -127,6 +127,19 @@ class QuizService {
     } catch (error) {
       throw new Error('Gagal menghapus pertanyaan: ' + error.message);
     }
+  }
+
+
+  async getQuestionByQuizId(id) {
+    try {
+
+      const question = await questionModel.findQuestionsByQuizId(id);
+      return question;
+      
+    } catch (error) {
+      throw new Error('Gagal mendapatkan question: ' + error.message);
+    }
+
   }
 }
 

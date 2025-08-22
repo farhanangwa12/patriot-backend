@@ -2,13 +2,13 @@ import OpenAI from "openai";
 
 
 export const openAiService = {
-  generateQuiz: async ({total_soal, status_soal }) => {
+  generateQuiz: async ({ total_soal, status_soal }) => {
     const openai = new OpenAI({
       baseURL: 'https://api.unli.dev/v1',
       apiKey: process.env.UNLI_API_KEY
     });
 
-    
+
 
     // const completion = await openai.chat.completions.create({
     //   messages: [{
@@ -63,8 +63,20 @@ export const openAiService = {
 
     });
 
-    const reply = completion.choices[0].message.content;
-    return reply;
+
+    // Ambil hasil string dari AI
+    const raw = completion.choices[0].message.content;
+
+    // Parse ke JS Array
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      console.error("Gagal parse JSON dari AI:", err, raw);
+      throw new Error("AI tidak mengembalikan JSON valid");
+    }
+
+    return parsed;
   },
 
   checkAnswerFromQuiz: async (user_answers) => {
@@ -113,3 +125,6 @@ export const openAiService = {
     return reply;
   }
 };
+
+
+

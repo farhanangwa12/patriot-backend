@@ -2,11 +2,11 @@ import client from '../config/database.js';
 
 export const questionModel = {
   // Create a new question
-  createQuestion: async ({ quiz_id, question_text, fact_answer, question_type = 'multiple_choice', options, created_by_ai = true }) => {
+  createQuestion: async ({ quiz_id, question_text, fact_answer, question_type = 'essay', created_by_ai = true }) => {
     const query = {
-      text: `INSERT INTO questions (quiz_id, question_text, fact_answer, question_type, options, created_by_ai) 
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      values: [quiz_id, question_text, fact_answer, question_type, options ? JSON.stringify(options) : null, created_by_ai]
+      text: `INSERT INTO questions (quiz_id, question_text, fact_answer, question_type, created_by_ai) 
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      values: [quiz_id, question_text, fact_answer, question_type, created_by_ai]
     };
     const result = await client.query(query);
     return result.rows[0];
@@ -42,7 +42,7 @@ export const questionModel = {
   },
 
   // Update a question
-  updateQuestion: async ({ id, quiz_id, question_text, fact_answer, question_type, options, created_by_ai }) => {
+  updateQuestion: async ({ id, quiz_id, question_text, fact_answer, question_type, created_by_ai }) => {
     const fields = [];
     const values = [];
     let i = 1;
@@ -51,7 +51,6 @@ export const questionModel = {
     if (question_text) { fields.push(`question_text=$${i++}`); values.push(question_text); }
     if (fact_answer) { fields.push(`fact_answer=$${i++}`); values.push(fact_answer); }
     if (question_type) { fields.push(`question_type=$${i++}`); values.push(question_type); }
-    if (options) { fields.push(`options=$${i++}`); values.push(JSON.stringify(options)); }
     if (typeof created_by_ai === 'boolean') { fields.push(`created_by_ai=$${i++}`); values.push(created_by_ai); }
 
     const query = {
@@ -72,3 +71,5 @@ export const questionModel = {
     return result.rows[0];
   }
 };
+
+export default questionModel;

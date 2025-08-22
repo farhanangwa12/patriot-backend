@@ -61,3 +61,6 @@ export const quizModel = {
     return result.rows[0];
   }
 };
+
+
+export default quizModel;
