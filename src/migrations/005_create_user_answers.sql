@@ -4,6 +4,8 @@ CREATE TABLE user_answers (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     quiz_id INTEGER NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
     question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    quiz_session_id INTEGER NOT NULL REFERENCES quiz_sessions(id) ON DELETE CASCADE,
+    
     
     user_answer TEXT, -- boleh NULL kalau belum menjawab
     

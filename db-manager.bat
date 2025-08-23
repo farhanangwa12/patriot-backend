@@ -2,10 +2,11 @@
 REM ========================================
 REM Load .env file
 REM ========================================
-for /f "tokens=1,2 delims==" %%a in (.env) do (
-    if "%%a"=="DB_NAME" set DB_NAME=%%b
-    if "%%a"=="DB_USER" set DB_USER=%%b
-    if "%%a"=="DB_PASS" set DB_PASS=%%b
+setlocal enabledelayedexpansion
+for /f "usebackq tokens=1,2 delims==" %%a in (".env") do (
+    if "%%a"=="DB_NAME" set "DB_NAME=%%b"
+    if "%%a"=="DB_USER" set "DB_USER=%%b"
+    if "%%a"=="DB_PASS" set "DB_PASS=%%b"
 )
 
 REM ========================================
@@ -46,6 +47,8 @@ pause
 goto menu
 
 :recreate
+echo Forcing disconnect users from %DB_NAME%...
+psql -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '%DB_NAME%' AND pid <> pg_backend_pid();"
 echo Recreating database...
 psql -U postgres -c "DROP DATABASE IF EXISTS %DB_NAME%;"
 psql -U postgres -c "CREATE DATABASE %DB_NAME% OWNER %DB_USER%;"

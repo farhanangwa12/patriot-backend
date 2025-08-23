@@ -6,7 +6,7 @@ export const userModel = {
     getUserByEmail: async ({ email, password }) => {
 
         const query = {
-            text: 'SELECT id, name, email, password WHERE email = $1',
+            text: 'SELECT id, name, email, password FROM users WHERE email = $1',
             values: [email]
         }
         const result = await client.query(query);
@@ -18,6 +18,26 @@ export const userModel = {
 
         }
 
+    },
+
+    findById: async (id) => {
+
+        const query = {
+            text: 'SELECT id, name, email FROM users WHERE id = $1',
+            values: [id]
+        }
+        
+
+        const result = await client.query(query);
+        console.log(query);
+        const user = result.rows[0];
+         if (user) {
+            return user;
+        } else {
+            return null;
+
+        }
+       
     },
     createUser: async ({ name, email, password }) => {
         const createdAt = new Date();
@@ -66,3 +86,4 @@ export const userModel = {
 };
 
 
+export default userModel;

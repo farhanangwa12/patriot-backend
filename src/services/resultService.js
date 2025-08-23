@@ -1,203 +1,248 @@
 
-import { quizModel } from '../models/quizModel.js';
-import { userAnswerModel } from '../models/userAnswerModel.js';
-import { questionModel } from '../models/questionModel.js';
-import openAiService from '../services/openaiService.js';
-import scoreService from '../services/scoreService.js';
+import quizModel from '../models/Quiz.js';
+import userAnswerModel from '../models/UserAnswer.js';
+import questionModel from '../models/Question.js';
+import quizSessionModel from '../models/UserSession.js';
+import userModel from '../models/User.js';
+import { openAiService } from '../services/openaiService.js';
 
 class ResultService {
-    // Menghitung hasil kuis berdasarkan quiz_id
-    async calculateQuizResult(quizId, userId) {
+
+    // Submit jawaban user
+    /**
+     * submitAnswerBulk: menerima bulk answers saja.
+     * payload = { user_id, quiz_id, userAnswers: [{ question_id, answer | user_answer }, ...] }
+     */
+    async submitAnswer(payload) {
         try {
-            // Validasi input
-            if (!quizId) {
-                throw new Error('Quiz ID wajib ada');
+            const { user_id, quiz_id, userAnswers } = payload;
+
+            // Basic validations
+            if (!user_id) throw new Error('User ID wajib diisi');
+            if (!quiz_id) throw new Error('Quiz ID wajib diisi');
+            if (!Array.isArray(userAnswers) || userAnswers.length === 0) {
+                throw new Error('userAnswers (array) wajib diisi dan tidak boleh kosong');
             }
 
-            if (!userId) {
-                throw new Error('User ID wajib ada');
+          
+            // Check user exists
+            const user = await userModel.findById(user_id);
+            if (!user) throw new Error('User tidak ditemukan');
+
+
+            // Check quiz exists
+            const quiz = await quizModel.findQuizById(quiz_id);
+            if (!quiz) throw new Error('Quiz tidak ditemukan');
+
+
+            const userSession = await quizSessionModel.createQuizSession({ user_id, quiz_id })
+
+            // Validate all questions first (serial validation to provide clear errors)
+            const validatedQuestions = {}; // map question_id -> question row
+            for (const item of userAnswers) {
+                const question_id = item.question_id ?? item.questionId ?? item.id;
+                if (!question_id) throw new Error('Setiap item pada userAnswers harus memiliki question_id');
+
+                const question = await questionModel.findQuestionById(question_id);
+                if (!question) throw new Error(`Question dengan id ${question_id} tidak ditemukan`);
+
+                // If question has quiz_id field, ensure it belongs to the provided quiz_id
+                if (question.quiz_id !== undefined && question.quiz_id !== null) {
+                    if (Number(question.quiz_id) !== Number(quiz_id)) {
+                        throw new Error(`Question ${question_id} tidak termasuk dalam quiz ${quiz_id}`);
+                    }
+                }
+
+                validatedQuestions[question_id] = question;
             }
+
+            // Build insert promises
+            const insertPromises = userAnswers.map((item) => {
+                const question_id = item.question_id ?? item.questionId ?? item.id;
+                const user_answer = (item.answer ?? item.user_answer ?? null);
+
+                const question = validatedQuestions[question_id];
+
+                // Determine answered_at, is_correct, score
+                let is_correct = null;
+                let score = null;
+                let answered_at = null;
+
+                const hasAnswered = user_answer !== null && user_answer !== undefined && String(user_answer).trim() !== '';
+                if (hasAnswered) {
+                    const correctAnswer = String(question.fact_answer ?? '').trim().toLowerCase();
+                    const given = String(user_answer).trim().toLowerCase();
+                    is_correct = (correctAnswer === given);
+                    score = is_correct ? 1 : 0;
+                    answered_at = new Date();
+                } else {
+                    // belum menjawab
+                    is_correct = null;
+                    score = null;
+                    answered_at = null;
+                }
+
+                // call model createUserAnswer (updated to accept answered_at)
+                return userAnswerModel.createUserAnswer({
+                    user_id,
+                    quiz_id,
+                    question_id,
+                    quiz_session_id: userSession.id,
+                    user_answer,
+                    is_correct,
+                    score,
+                    answered_at
+                });
+            });
+
+            // Execute all inserts in parallel
+            await Promise.all(insertPromises);
+
+
+
+            return userSession;
+
+        } catch (err) {
+            throw new Error('Gagal submit bulk answers: ' + err.message);
+        }
+    }
+
+    // Menghitung hasil kuis berdasarkan quiz_id
+    async calculateQuizResult(quiz_session_id) {
+        try {
+
 
             // Ambil data quiz
-            const quiz = await quizModel.findQuizById(quizId);
-            if (!quiz) {
-                throw new Error('Quiz tidak ditemukan');
+            const quizSession = await quizSessionModel.findQuizSessionById(quiz_session_id);
+            if (!quizSession) {
+                throw new Error('Quiz session tidak ditemukan');
             }
 
-            // Ambil jawaban user berdasarkan quiz ID
-            const userAnswers = await userAnswerModel.findUserAnswersByQuizId(quizId, userId);
-            if (!userAnswers || userAnswers.length === 0) {
-                throw new Error('Tidak ada jawaban user untuk quiz ini');
-            }
 
-            // Ambil semua pertanyaan berdasarkan quiz ID
-            const questions = await questionModel.findQuestionsByQuizId(quizId);
-            if (!questions || questions.length === 0) {
-                throw new Error('Tidak ada pertanyaan untuk quiz ini');
-            }
-
-            // Susun hasil tanpa re-checking dengan AI
-            const answersDetail = userAnswers.map(userAnswer => {
-                const question = questions.find(q => q.id === userAnswer.question_id);
+            const questions = await questionModel.findQuestionsByQuizId(quizSession.quiz_id);
+            const userAnswers = await userAnswerModel.findUserAnswersByQuizSessionId(quizSession.id);
+            // 2. prepare payload for OpenAI: map userAnswers -> include question & fact from questions
+            const qaPayload = userAnswers.map(ua => {
+                const q = questions.find(x => Number(x.id) === Number(ua.question_id));
+                // Support multiple possible field names (question_name, question_text) and fact (fact, fact_answer)
+                const questionText = q?.question_name ?? q?.question_text ?? q?.question ?? '';
+                const factText = q?.fact ?? q?.fact_answer ?? q?.answer ?? '';
                 return {
-                    question: question.question_text,
-                    fact: question.fact_answer,
-                    user_answer: userAnswer.user_answer,
-                    id: userAnswer.id,
-                    is_correct: userAnswer.is_correct
+                    question: questionText,
+                    fact: factText,
+                    user_answer: ua.user_answer,
+                    id: ua.id,
+                    is_correct: ua.is_correct // can be true/false/null
                 };
             });
 
-            const userAnswerResult = await openAiService.checkAnswerFromQuiz(answersDetail);
+            
 
-            // Update jawaban user dengan hasil dari AI
-            await Promise.all(
-                userAnswerResult.map(async (userAnswer) => {
-                    return await userAnswerModel.updatedUserAnswer({
-                        id: userAnswer.id,
-                        is_correct: userAnswer.is_correct
-                    });
-                })
-            );
+            // 3. call OpenAI checker (send JSON string so prompt receives valid JSON)
+            let aiReplyRaw = await openAiService.checkAnswerFromQuiz(JSON.stringify(qaPayload));
+            // openAiService is expected to return a string containing JSON array.
+            let aiResults;
+            
+            try {
+                aiResults = JSON.parse(aiReplyRaw);
+                if (!Array.isArray(aiResults)) throw new Error('AI reply is not an array');
+            } catch (err) {
+                // If parsing fails, surface helpful error
+                throw new Error('Failed to parse AI response: ' + (err.message || aiReplyRaw));
+            }
 
-            // Hitung skor menggunakan scoreService
-            const scoreResult = await scoreService.calculateScore({
-                quiz_id: quizId,
-                user_id: userId,
-                total_questions: questions.length,
-                checked_answers: userAnswerResult
+
+            
+
+            // 4. determine per-question score based on quiz.total_soal
+            const quiz = await quizModel.findQuizById(quizSession.quiz_id);
+            const totalQuestions = Number(quiz?.total_soal ?? questions.length);
+            if (!totalQuestions || totalQuestions <= 0) throw new Error('Invalid quiz total_soal');
+
+            // integer per-question value (floor), per requirement
+            const perQuestionScore = Math.floor(100 / totalQuestions);
+
+            // 5. update each user answer based on AI result
+            const updatePromises = aiResults.map(item => {
+                // item expected: { id: <number>, is_correct: true/false }
+                const id = item.id;
+                // normalize possible string 'true'/'false' to boolean
+                const is_correct = (item.is_correct === true || String(item.is_correct).toLowerCase() === 'true');
+                const score = is_correct ? perQuestionScore : 0;
+
+                // find existing userAnswer to keep other fields or answered_at
+                const existing = userAnswers.find(u => Number(u.id) === Number(id));
+                const answered_at = existing?.answered_at ?? new Date();
+
+                // call update model (partial update)
+                return userAnswerModel.updateUserAnswer({
+                    id,
+                    is_correct,
+                    score,
+                    answered_at
+                });
             });
 
-            // Susun hasil akhir
+            const updatedAnswers = await Promise.all(updatePromises);
+
+            // 6. recompute totals after updates
+            const refreshedAnswers = await userAnswerModel.findUserAnswersByQuizSessionId(quiz_session_id);
+
+            const correctCount = refreshedAnswers.filter(a => a.is_correct === true).length;
+            const incorrectCount = refreshedAnswers.filter(a => a.is_correct === false).length;
+            const totalScore = refreshedAnswers.reduce((sum, a) => sum + (Number(a.score) || 0), 0);
+
+            // per your DDL, quiz_sessions.max_score default = 100
+            const percentage = totalScore; // since perQuestionScore sum is computed against 100 (per requirement)
+
             const result = {
                 quiz: {
                     id: quiz.id,
                     title: quiz.title,
                     topic: quiz.topic,
-                    total_questions: questions.length
+                    total_questions: totalQuestions
                 },
-                user_id: userId,
-                score: scoreResult,
-                answers_detail: userAnswerResult,
+                quiz_session_id: quizSession.id,
+                user_id: quizSession.user_id,
+                total_score: totalScore,
+                percentage,
                 completed_at: new Date(),
+                answers_detail: refreshedAnswers.map(a => ({
+                    id: a.id,
+                    question_id: a.question_id,
+                    user_answer: a.user_answer,
+                    is_correct: a.is_correct,
+                    score: a.score,
+                    answered_at: a.answered_at
+                })),
                 summary: {
-                    total_questions: questions.length,
-                    correct_answers: userAnswerResult.filter(a => a.is_correct).length,
-                    incorrect_answers: userAnswerResult.filter(a => !a.is_correct).length,
-                    accuracy_percentage: scoreResult.percentage
+                    total_questions: totalQuestions,
+                    correct_answers: correctCount,
+                    incorrect_answers: incorrectCount,
+                    accuracy_percentage: percentage
                 }
             };
 
+            // 7. update quiz_session row with totals
+            await quizSessionModel.updateQuizSession({
+                id: quizSession.id,
+                total_score: totalScore,
+                percentage,
+                completed_at: result.completed_at
+            });
+
             return result;
+
+
+
+
 
         } catch (error) {
             throw new Error('Gagal menghitung hasil kuis: ' + error.message);
         }
     }
 
-    // // Mendapatkan hasil kuis yang sudah ada berdasarkan user dan quiz
-    // async getExistingResult(quizId, userId) {
-    //     try {
-    //         if (!quizId || !userId) {
-    //             throw new Error('Quiz ID dan User ID wajib ada');
-    //         }
 
-    //         // Ambil data quiz
-    //         const quiz = await quizModel.getQuizById(quizId);
-    //         if (!quiz) {
-    //             throw new Error('Quiz tidak ditemukan');
-    //         }
-
-    //         // Ambil jawaban user
-    //         const userAnswers = await userAnswerModel.getByQuizId(quizId, userId);
-    //         if (!userAnswers || userAnswers.length === 0) {
-    //             return null; // Belum ada hasil
-    //         }
-
-    //         // Ambil pertanyaan
-    //         const questions = await questionModel.findByQuizId(quizId);
-
-    //         // Susun hasil tanpa re-checking dengan AI
-    //         const answersDetail = userAnswers.map(userAnswer => {
-    //             const question = questions.find(q => q.id === userAnswer.question_id);
-    //             return {
-    //                 question_id: question.id,
-    //                 question_text: question.question_text,
-    //                 fact_answer: question.fact_answer,
-    //                 user_answer: userAnswer.answer_text,
-    //                 is_correct: userAnswer.is_correct
-    //             };
-    //         });
-
-    //         const correctAnswers = answersDetail.filter(a => a.is_correct).length;
-    //         const accuracy = (correctAnswers / questions.length) * 100;
-
-    //         return {
-    //             quiz: {
-    //                 id: quiz.id,
-    //                 title: quiz.title,
-    //                 topic: quiz.topic,
-    //                 total_questions: questions.length
-    //             },
-    //             user_id: userId,
-    //             answers_detail: answersDetail,
-    //             summary: {
-    //                 total_questions: questions.length,
-    //                 correct_answers: correctAnswers,
-    //                 incorrect_answers: questions.length - correctAnswers,
-    //                 accuracy_percentage: accuracy
-    //             }
-    //         };
-
-    //     } catch (error) {
-    //         throw new Error('Gagal mengambil hasil kuis: ' + error.message);
-    //     }
-    // }
-
-    // // Mendapatkan semua hasil kuis untuk user tertentu
-    // async getUserResults(userId) {
-    //     try {
-    //         if (!userId) {
-    //             throw new Error('User ID wajib ada');
-    //         }
-
-    //         // Ambil semua jawaban user
-    //         const userAnswers = await userAnswerModel.getByUserId(userId);
-    //         if (!userAnswers || userAnswers.length === 0) {
-    //             return [];
-    //         }
-
-    //         // Group by quiz_id
-    //         const quizGroups = userAnswers.reduce((groups, answer) => {
-    //             if (!groups[answer.quiz_id]) {
-    //                 groups[answer.quiz_id] = [];
-    //             }
-    //             groups[answer.quiz_id].push(answer);
-    //             return groups;
-    //         }, {});
-
-    //         // Process setiap quiz
-    //         const results = await Promise.all(
-    //             Object.keys(quizGroups).map(async (quizId) => {
-    //                 return await this.getExistingResult(parseInt(quizId), userId);
-    //             })
-    //         );
-
-    //         return results.filter(result => result !== null);
-
-    //     } catch (error) {
-    //         throw new Error('Gagal mengambil hasil user: ' + error.message);
-    //     }
-    // }
-
-    // // Re-evaluate jawaban dengan AI (untuk kasus khusus)
-    // async reEvaluateAnswers(quizId, userId) {
-    //     try {
-    //         return await this.calculateQuizResult(quizId, userId);
-    //     } catch (error) {
-    //         throw new Error('Gagal mengevaluasi ulang jawaban: ' + error.message);
-    //     }
-    // }
 }
 
 export default new ResultService();

@@ -82,7 +82,7 @@ export const openAiService = {
   checkAnswerFromQuiz: async (user_answers) => {
     const openai = new OpenAI({
       baseURL: 'https://api.lunos.tech/v1',
-      apiKey: process.env.UNLI_API_KEY
+      apiKey: process.env.LUNOS_API_KEY
     });
 
     let messages = [
@@ -122,6 +122,8 @@ export const openAiService = {
     });
 
     const reply = completion.choices[0].message.content;
+
+    console.log('ai:',reply);
     return reply;
   }
 };
