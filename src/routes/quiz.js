@@ -16,8 +16,8 @@ router.put('/update-quizez/:id', quizController.updateQuizez); // id via body/qu
 router.get('/get-quizez/:id', quizController.getQuizezById);
 
 // routes → controller methods (sudah bound)
-router.get('/intro', quizController.intoQuizez);
-router.get('/start', quizController.startQuizez);
+router.get('/intro/:id', quizController.intoQuizez);
+router.post('/start', quizController.startQuizez);
 router.post('/submit', quizController.submitQuizez);
 router.get('/result/:id', quizController.resultQuizez);
 

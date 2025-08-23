@@ -51,7 +51,7 @@ export default class QuizController {
                 total_questions
             });
 
-            await this.quizService.createQuestion({id: created.id});
+            await this.quizService.createQuestion({ id: created.id });
 
             return res.status(201).json({
                 success: true,
@@ -66,7 +66,7 @@ export default class QuizController {
     // Accepts id via params, query, or body
     async deleteQuizez(req, res, next) {
         try {
-            const id = req.params.id ;
+            const id = req.params.id;
             if (!id) return res.status(400).json({ success: false, message: 'Missing id to delete' });
 
 
@@ -79,7 +79,7 @@ export default class QuizController {
             }
 
 
-            return res.status(200).json({ success: true,   message: 'Quiz berhasil dihapus' });
+            return res.status(200).json({ success: true, message: 'Quiz berhasil dihapus' });
         } catch (error) {
             next(error);
         }
@@ -90,21 +90,21 @@ export default class QuizController {
     // body: { id, title, topic }
     async updateQuizez(req, res, next) {
         try {
-            const id = req.params.id ;
+            const id = req.params.id;
             if (!id) return res.status(400).json({ success: false, message: 'Missing id to update' });
 
-            const {title, description,question_statuses, total_questions } = req.body;
+            const { title, description, question_statuses, total_questions } = req.body;
 
 
 
-            const updated = await this.quizService.updateQuiz(id, {title, description, question_statuses, total_questions});
+            const updated = await this.quizService.updateQuiz(id, { title, description, question_statuses, total_questions });
 
 
             if (!updated) return res.status(404).json({ success: false, message: 'Quiz not found' });
 
 
             await this.quizService.deleteQuestionByQuizId(id);
-            await this.quizService.createQuestion({id: updated.id});
+            await this.quizService.createQuestion({ id: updated.id });
 
 
 
@@ -135,7 +135,9 @@ export default class QuizController {
 
     async intoQuizez(req, res, next) {
         try {
-            const result = await this.quizService.getQuizById(1);
+
+            const { id } = req.params;
+            const result = await this.quizService.getQuizById(id);
             return res.status(201).json({
                 status: 'success',
                 message: 'Berhasil menampilkan quiz',
@@ -148,11 +150,18 @@ export default class QuizController {
 
     async startQuizez(req, res, next) {
         try {
-            const questions = await this.quizService.createQuestion({ id: 1 });
+            const { id } = req.body;
+            const questions = await this.quizService.getQuestionByQuizId(id);
+            const quiz = await this.quizService.getQuizById(id)
+
+
             return res.status(201).json({
                 status: 'success',
                 message: 'Berhasil menampilkan question',
-                data: questions
+                data: {
+                    quiz,
+                    questions: questions
+                }
             });
         } catch (error) {
             next(error);

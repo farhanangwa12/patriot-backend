@@ -72,7 +72,7 @@ export const userAnswerModel = {
   // Get user answers by quiz_session_id
   findUserAnswersByQuizSessionId: async (quiz_session_id) => {
     const query = {
-      text: `SELECT * FROM user_answers WHERE quiz_session_id = $1 ORDER BY created_at DESC`,
+      text: `SELECT * FROM user_answers WHERE quiz_session_id = $1 ORDER BY created_at ASC`,
       values: [quiz_session_id]
     };
     const result = await client.query(query);
