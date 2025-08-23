@@ -69,6 +69,14 @@ export const questionModel = {
     };
     const result = await client.query(query);
     return result.rows[0];
+  },
+  deleteQuestionByQuizId: async (id) => {
+    const query = {
+      text: `DELETE FROM questions WHERE quiz_id = $1 RETURNING *`,
+      values: [id]
+    };
+    const result = await client.query(query);
+    return result.rows[0];
   }
 };
 

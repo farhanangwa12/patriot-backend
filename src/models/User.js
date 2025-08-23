@@ -3,7 +3,7 @@ import client from '../config/database.js';
 import bcrypt from 'bcrypt';
 
 export const userModel = {
-    getUserByEmail: async ({ email, password }) => {
+    getUserByEmail: async ({ email }) => {
 
         const query = {
             text: 'SELECT id, name, email, password FROM users WHERE email = $1',
@@ -11,12 +11,7 @@ export const userModel = {
         }
         const result = await client.query(query);
         const user = result.rows[0];
-        if (user && await bcrypt.compare(password, user.password)) {
-            return user;
-        } else {
-            return null;
-
-        }
+        return user;
 
     },
 
@@ -26,25 +21,25 @@ export const userModel = {
             text: 'SELECT id, name, email FROM users WHERE id = $1',
             values: [id]
         }
-        
+
 
         const result = await client.query(query);
         console.log(query);
         const user = result.rows[0];
-         if (user) {
+        if (user) {
             return user;
         } else {
             return null;
 
         }
-       
+
     },
     createUser: async ({ name, email, password }) => {
         const createdAt = new Date();
         const hashedPassword = await bcrypt.hash(password, 10); // hash password
 
         const query = {
-            text: 'INSERT INTO users (name, email, password, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            text: 'INSERT INTO users (name, email, password, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email',
             values: [name, email, hashedPassword, createdAt, createdAt]
         };
         const result = await client.query(query);

@@ -7,7 +7,7 @@ class QuizService {
   async createQuestion({ id }) {
     try {
       // Validasi input
-      if (!id ) {
+      if (!id) {
         throw new Error('id Quiz topic wajib ada');
       }
 
@@ -18,7 +18,7 @@ class QuizService {
       }
 
       // Generate 10 pertanyaan menggunakan OpenAI
-      const questions = await openAiService.generateQuiz({total_soal: quiz.total_questions, status_soal: quiz.question_statuses });
+      const questions = await openAiService.generateQuiz({ total_soal: quiz.total_questions, status_soal: quiz.question_statuses });
 
 
       // Validasi jumlah pertanyaan
@@ -30,7 +30,7 @@ class QuizService {
       // Simpan pertanyaan ke database
       const savedQuestions = await Promise.all(
         questions.map(async (q) => {
-          if (!q.soal || !q.fakta ) {
+          if (!q.soal || !q.fakta) {
             throw new Error('Format pertanyaan dari OpenAI tidak valid');
           }
           return await questionModel.createQuestion({
@@ -48,13 +48,35 @@ class QuizService {
     }
   }
 
+  async createQuizez({ title, description, question_statuses, total_questions }) {
+    try {
+      // Validasi input wajib
+      if (!title || !description || !question_statuses || !total_questions) {
+        throw new Error('title, description, question_statuses, total_questions wajib ada');
+      }
+
+      // Panggil model untuk insert
+      const quiz = await quizModel.createQuiz({
+        title,
+        description,
+        question_statuses,
+        total_questions
+      });
+
+      return quiz;
+    } catch (error) {
+      console.error('Error in createQuizez:', error.message);
+      throw error;
+    }
+  }
+
   // Mendapatkan semua kuis
   async getAllQuizzes() {
     try {
-      const quizzes = await quizModel.getAllQuizzes();
+      const quizzes = await quizModel.findAllQuiz();
       return quizzes;
     } catch (error) {
-      throw new Error('Gagal mengambil daftar kuis: ' + error.message);
+      throw new Error('Gagal mengambil semua kuis: ' + error.message);
     }
   }
 
@@ -72,13 +94,13 @@ class QuizService {
   }
 
   // Memperbarui kuis
-  async updateQuiz(id, { title, topic }) {
+  async updateQuiz(id, { title, description, question_statuses, total_questions }) {
     try {
-      const quiz = await quizModel.getQuizById(id);
+      const quiz = await quizModel.findQuizById(id);
       if (!quiz) {
         throw new Error('Kuis tidak ditemukan');
       }
-      const updatedQuiz = await quizModel.updateQuiz(id, { title, topic });
+      const updatedQuiz = await quizModel.updateQuiz({ id, title, description, question_statuses, total_questions });
       return updatedQuiz;
     } catch (error) {
       throw new Error('Gagal memperbarui kuis: ' + error.message);
@@ -92,7 +114,7 @@ class QuizService {
       if (!quiz) {
         throw new Error('Kuis tidak ditemukan');
       }
-      return { message: 'Kuis berhasil dihapus' };
+      return true;
     } catch (error) {
       throw new Error('Gagal menghapus kuis: ' + error.message);
     }
@@ -129,13 +151,27 @@ class QuizService {
     }
   }
 
+  async deleteQuestionByQuizId(id) {
+
+
+    try {
+      const question = await questionModel.deleteQuestionByQuizId(id);
+      if (!question) {
+        throw new Error('Pertanyaan tidak ditemukan');
+      }
+      return { message: 'Pertanyaan berhasil dihapus by quiz' };
+    } catch (error) {
+      throw new Error('Gagal menghapus pertanyaan by quiz: ' + error.message);
+    }
+  }
+
 
   async getQuestionByQuizId(id) {
     try {
 
       const question = await questionModel.findQuestionsByQuizId(id);
       return question;
-      
+
     } catch (error) {
       throw new Error('Gagal mendapatkan question: ' + error.message);
     }

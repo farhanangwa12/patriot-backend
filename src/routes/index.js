@@ -1,17 +1,15 @@
 // routes/auth.js
-const express = require('express');
-const { login, logout, getProfile } = require('../controllers/authController');
-const { authenticateToken } = require('../middleware/auth');
+import express from 'express';
+import AuthController from '../controllers/authController.js';
+
 
 const router = express.Router();
 
+const authController = new AuthController();
+
 // Login route
-router.post('/login', login);
-
-// Logout route
-router.post('/logout', authenticateToken, logout);
-
+router.post('/login', authController.login);
 // Get profile route (protected)
-router.get('/profile', authenticateToken, getProfile);
+router.post('/register', authController.register);
 
-module.exports = router;
+export default router;
