@@ -28,15 +28,15 @@ while true; do
   case $choice in
     1)
       echo "Creating user and database..."
-      sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASS';"
-      sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
+      sudo -u postgres psql -d postgres -c "DO \$\$ BEGIN CREATE USER $DB_USER WITH PASSWORD '$DB_PASS'; EXCEPTION WHEN duplicate_object THEN RAISE NOTICE 'User already exists, skipping'; END \$\$;"
+      sudo -u postgres psql -d postgres -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
       echo "Done!"
       read -p "Press enter to continue..."
       ;;
     2)
       echo "Deleting database and user..."
-      sudo -u postgres psql -c "DROP DATABASE IF EXISTS $DB_NAME;"
-      sudo -u postgres psql -c "DROP USER IF EXISTS $DB_USER;"
+      sudo -u postgres psql -d postgres -c "DROP DATABASE IF EXISTS $DB_NAME;"
+      sudo -u postgres psql -d postgres -c "DROP USER IF EXISTS $DB_USER;"
       echo "Done!"
       read -p "Press enter to continue..."
       ;;
@@ -44,8 +44,8 @@ while true; do
       echo "Forcing disconnect users from $DB_NAME..."
       sudo -u postgres psql -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();"
       echo "Recreating database..."
-      sudo -u postgres psql -c "DROP DATABASE IF EXISTS $DB_NAME;"
-      sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
+      sudo -u postgres psql -d postgres -c "DROP DATABASE IF EXISTS $DB_NAME;"
+      sudo -u postgres psql -d postgres -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
       echo "Done!"
       read -p "Press enter to continue..."
       ;;
