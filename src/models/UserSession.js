@@ -30,12 +30,47 @@ export const quizSessionModel = {
     // Get quiz sessions by user ID
     findQuizSessionsByUserId: async (user_id) => {
         const query = {
-            text: `SELECT * FROM quiz_sessions WHERE user_id = $1 ORDER BY created_at DESC`,
+            text: `
+            SELECT 
+                qs.id AS id_session,
+                u.name AS user_name,
+                q.title AS quiz_title,
+                qs.completed_at,
+                COUNT(CASE WHEN ua.is_correct = TRUE THEN 1 END) AS jawaban_benar,
+                COUNT(CASE WHEN ua.is_correct = FALSE THEN 1 END) AS jawaban_salah,
+                q.total_questions AS total_soal
+            FROM quiz_sessions qs
+            JOIN users u ON qs.user_id = u.id
+            JOIN quizzes q ON qs.quiz_id = q.id
+            LEFT JOIN user_answers ua ON qs.id = ua.quiz_session_id
+            WHERE qs.user_id = $1
+            GROUP BY qs.id, u.name, q.title, qs.completed_at, q.total_questions
+            ORDER BY qs.created_at DESC
+        `,
             values: [user_id]
         };
+
         const result = await client.query(query);
-        return result.rows;
+
+        // Hitung akurasi di JS
+        return result.rows.map(row => {
+            const benar = Number(row.jawaban_benar) || 0;
+            const total = Number(row.total_soal) || 0;
+            const akurasi = total > 0 ? ((benar / total) * 100).toFixed(2) : "0.00";
+
+            return {
+                id_session: row.id_session,
+                user_name: row.user_name,
+                quiz_title: row.quiz_title,
+                completed_at: row.completed_at,
+                jawaban_benar: benar,
+                jawaban_salah: Number(row.jawaban_salah) || 0,
+                total_soal: total,
+                akurasi
+            };
+        });
     },
+
 
     // Get quiz sessions by quiz ID
     findQuizSessionsByQuizId: async (quiz_id) => {

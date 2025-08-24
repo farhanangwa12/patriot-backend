@@ -24,7 +24,7 @@ class ResultService {
                 throw new Error('userAnswers (array) wajib diisi dan tidak boleh kosong');
             }
 
-          
+
             // Check user exists
             const user = await userModel.findById(user_id);
             if (!user) throw new Error('User tidak ditemukan');
@@ -136,13 +136,13 @@ class ResultService {
                 };
             });
 
-            
+
 
             // 3. call OpenAI checker (send JSON string so prompt receives valid JSON)
             let aiReplyRaw = await openAiService.checkAnswerFromQuiz(JSON.stringify(qaPayload));
             // openAiService is expected to return a string containing JSON array.
             let aiResults;
-            
+
             try {
                 aiResults = JSON.parse(aiReplyRaw);
                 if (!Array.isArray(aiResults)) throw new Error('AI reply is not an array');
@@ -152,7 +152,7 @@ class ResultService {
             }
 
 
-            
+
 
             // 4. determine per-question score based on quiz.total_soal
             const quiz = await quizModel.findQuizById(quizSession.quiz_id);
@@ -242,6 +242,88 @@ class ResultService {
         }
     }
 
+
+    async getAllResult() {
+        try {
+            const result = await quizSessionModel.findQuizSessionsByUserId(1);
+
+            return result;
+
+        }
+        catch (err) {
+            throw new Error('Gagal submit bulk answers: ' + err.message);
+        }
+
+
+    }
+    async getResultById(id) {
+        try {
+            const quizSession = await quizSessionModel.findQuizSessionById(id);
+            console.log('test', quizSession);
+            const quiz = await quizModel.findQuizById(quizSession.quiz_id);
+
+            const questions = await questionModel.findQuestionsByQuizId(quizSession.quiz_id);
+            const totalQuestions = Number(quiz?.total_questions ?? questions.length);
+            const userAnswers = await userAnswerModel.findUserAnswersByQuizSessionId(quizSession.id);
+
+
+            const correctCount = userAnswers.filter(a => a.is_correct === true).length;
+            const incorrectCount = userAnswers.filter(a => a.is_correct === false).length;
+            const totalScore = userAnswers.reduce((sum, a) => sum + (Number(a.score) || 0), 0);
+
+            // per your DDL, quiz_sessions.max_score default = 100
+            const percentage = totalScore; // since perQuestionScore sum is computed against 100 (per requirement)
+            const result = {
+                quiz: {
+                    id: quiz.id,
+                    title: quiz.title,
+                    topic: quiz.topic,
+                    total_questions: totalQuestions
+                },
+                quiz_session_id: quizSession.id,
+                user_id: quizSession.user_id,
+                total_score: totalScore,
+                percentage,
+                completed_at: new Date(),
+                answers_detail: userAnswers.map(a => {
+                    const question = questions.find(q => q.id === a.question_id); // cari soal yg cocok
+                    return {
+                        id: a.id,
+                        question_id: a.question_id,
+                        user_answer: a.user_answer,
+                        is_correct: a.is_correct,
+                        score: a.score,
+                        answered_at: a.answered_at,
+                        fact_answer: question ? question.fact_answer : null, // tambahkan fact_answer
+                        question: question ? question.question_text : null
+                    };
+                }),
+                summary: {
+                    total_questions: totalQuestions,
+                    correct_answers: correctCount,
+                    incorrect_answers: incorrectCount,
+                    accuracy_percentage: percentage
+                }
+            };
+
+            return result;
+
+        }
+        catch (err) {
+            throw new Error('Error mendapatkan data result : ' + err.message);
+        }
+    }
+    async deleteResult(id) {
+        try {
+            const result = await quizSessionModel.deleteQuizSession(id);
+
+            return result;
+
+        }
+        catch (err) {
+            throw new Error('Gagal submit bulk answers: ' + err.message);
+        }
+    }
 
 }
 

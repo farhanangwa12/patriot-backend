@@ -14,18 +14,16 @@ async function testsendmail() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                emailId: '3d243f24-3fd2-4c7c-bb7f-d599d72870a2',
+                emailId: '8bf18365-7956-48c2-830a-2f1eb51cbe80',
                 to: 'narutokah3@gmail.com',
                 subject: 'Thanks for your order!',
                 htmlBody: '<html><body><h1>Order Confirmation</h1><p>Your order #12345 has been received.</p></body></html>',
-                plainBody: "Order Confirmation. Your order #12345 has been received.",
-                attachments: []
+                plainBody: "Order Confirmation. Your order #12345 has been received."
             }),
         });
 
         if (response.ok) {
             const data = await response.json();
-            console.log("✅ Email berhasil dikirim!");
             console.log("Response:", data);
         } else {
             console.error("❌ Gagal kirim email. Status:", response.status);
@@ -172,10 +170,10 @@ async function chatLoop() {
 
 
 // jalankan function
-// testgetemail();
-// testsendmail();
+testgetemail();
+testsendmail();
 
-unlidevtest();
+// unlidevtest();
 // unlidevmodelget();
 
-chatLoop();
+// chatLoop();

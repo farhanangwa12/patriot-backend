@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import quizRoute from './routes/quiz.js';
 import authRoute from './routes/index.js';
+import resultRoute from './routes/result.js';
+import env from './config/env.js';
 
 import { authenticateToken, authorizeRole, optionalAuth } from './middleware/auth.js';
 
@@ -14,7 +16,7 @@ app.use(express.json());
 const corsOptions = {
     origin: [
 
-        'http://localhost:5173', // Vite default port
+        env.FRONTEND_URL, 
 
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -27,5 +29,5 @@ app.use(cors(corsOptions));
 // register route quiz
 app.use('/auth', authRoute);
 app.use('/quiz', quizRoute);
-
+app.use('/result', resultRoute);
 export default app;

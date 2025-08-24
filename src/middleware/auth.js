@@ -50,8 +50,9 @@ const authenticateToken = async (req, res, next) => {
 const createToken = (user) => {
     return jwt.sign(
         {
-            userId: user._id,    // atau user.id kalau pakai SQL
-            role: user.role
+            id: user.id,    // atau user.id kalau pakai SQL
+            name: user.name,
+            email: user.email
         },
         process.env.JWT_SECRET,
         { expiresIn: '1h' } // token expired 1 jam

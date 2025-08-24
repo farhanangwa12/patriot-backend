@@ -2,41 +2,64 @@
 import bcrypt from 'bcryptjs';
 import userModel from '../models/User.js';
 import { createToken } from '../middleware/auth.js';
+import OtpModel from "../models/Otp.js";
+
 
 export default class AuthController {
+    constructor(mailService) {
+        this.mailService = mailService;
 
+
+        this.register = this.register.bind(this);
+        this.login = this.login.bind(this);
+        this.sendOTP = this.sendOTP.bind(this);
+    }
 
     // Register
     async register(req, res) {
         try {
-            const { name, email, password } = req.body;
+            const { name, email, otp, password } = req.body;
 
-            // simple validation
+            // Validasi input
+            if (!otp) {
+                return res.status(400).json({ success: false, message: "OTP is required" });
+            }
             if (!name || !email || !password) {
-                return res.status(400).json({ success: false, message: 'Name, email and password are required' });
+                return res
+                    .status(400)
+                    .json({ success: false, message: "Name, email and password are required" });
             }
 
-            // check existing user
+            // Cek apakah email sudah terdaftar
             const existingUser = await userModel.getUserByEmail({ email });
             if (existingUser) {
-                return res.status(400).json({ success: false, message: 'Email already in use' });
+                return res.status(400).json({ success: false, message: "Email already in use" });
             }
 
-            // create user (userModel will hash the password)
+            // ✅ Verifikasi OTP
+            const otpCheck = await OtpModel.checkOTPIsValid(email, otp);
+            if (!otpCheck) {
+                return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+            }
+
+            // Buat user baru (userModel akan hash password)
             const user = await userModel.createUser({ name, email, password });
 
-            // create token
+            // Hapus OTP biar tidak bisa dipakai ulang
+            await OtpModel.deleteOTP(otpCheck.id);
+
+            // Buat token
             const token = createToken(user);
 
             return res.status(201).json({
                 success: true,
-                message: 'User registered successfully',
+                message: "User registered successfully",
                 token,
-                user // contains id, name, email (no password)
+                user, // contains id, name, email (no password)
             });
         } catch (err) {
-            console.error('Register error:', err);
-            return res.status(500).json({ success: false, message: 'Server error' });
+            console.error("Register error:", err);
+            return res.status(500).json({ success: false, message: "Server error" });
         }
     }
 
@@ -79,6 +102,41 @@ export default class AuthController {
             return res.status(500).json({ success: false, message: 'Server error' });
         }
     }
+
+
+    // Create OTP
+    async sendOTP(req, res) {
+        try {
+            const { email } = req.body;
+
+            if (!email) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Email wajib diisi",
+                });
+            }
+
+            // Kirim OTP ke email user
+            const result = await this.mailService.sendGeneratedOTP({
+                to: email,
+                otpLength: 6,        // default 6 digit
+                expiryMinutes: 5,    // default 5 menit
+            });
+
+            return res.json({
+                success: true,
+                message: "Berhasil mengirim kode OTP, silahkan cek email atau spam.",
+                expiresAt: result.expiresAt, // opsional kalau mau kasih info expired
+            });
+        } catch (err) {
+            console.error("Send OTP error:", err);
+            return res.status(500).json({
+                success: false,
+                message: "Gagal mengirim OTP, coba lagi nanti.",
+            });
+        }
+    }
+
 }
 
 
