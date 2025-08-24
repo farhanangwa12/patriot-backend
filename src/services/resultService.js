@@ -259,8 +259,8 @@ class ResultService {
     async getResultById(id) {
         try {
             const quizSession = await quizSessionModel.findQuizSessionById(id);
-            console.log('test', quizSession);
-            const quiz = await quizModel.findQuizById(quizSession.quiz_id);
+          
+            const quiz = await quizModel.findQuizById(quizSession.quiz_id, true);
 
             const questions = await questionModel.findQuestionsByQuizId(quizSession.quiz_id);
             const totalQuestions = Number(quiz?.total_questions ?? questions.length);

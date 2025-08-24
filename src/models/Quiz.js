@@ -29,14 +29,26 @@ export const quizModel = {
   },
 
   // Get a quiz by ID
-  findQuizById: async (id) => {
-    const query = {
-      text: `SELECT * FROM quizzes WHERE id = $1 AND deleted_at IS NULL`,
-      values: [id]
-    };
+  findQuizById: async (id, showDeleted = false) => {
+    let query;
+
+    if (showDeleted) {
+      query = {
+        text: `SELECT * FROM quizzes WHERE id = $1`,
+        values: [id],
+      };
+    } else {
+      query = {
+        text: `SELECT * FROM quizzes WHERE id = $1 AND deleted_at IS NULL`,
+        values: [id],
+      };
+    }
+
     const result = await client.query(query);
     return result.rows[0];
   },
+
+
 
   // Update a quiz
   updateQuiz: async ({ id, title, description, question_statuses, total_questions }) => {

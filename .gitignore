@@ -2,3 +2,5 @@
 /.env.backup
 
 node_modules/
+
+logs/
