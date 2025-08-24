@@ -38,6 +38,8 @@ export const userModel = {
         const createdAt = new Date();
         const hashedPassword = await bcrypt.hash(password, 10); // hash password
 
+
+        
         const query = {
             text: 'INSERT INTO users (name, email, password, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email',
             values: [name, email, hashedPassword, createdAt, createdAt]

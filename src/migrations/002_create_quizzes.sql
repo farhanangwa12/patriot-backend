@@ -6,7 +6,8 @@ CREATE TABLE quizzes (
     question_statuses JSON,
     total_questions INTEGER DEFAULT 10,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     deleted_at TIMESTAMP NULL
 );
 
 

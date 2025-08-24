@@ -22,7 +22,7 @@ export const quizModel = {
   // Get all quizzes
   findAllQuiz: async () => {
     const query = {
-      text: `SELECT * FROM quizzes`
+      text: `SELECT * FROM quizzes WHERE deleted_at IS NULL`
     };
     const result = await client.query(query);
     return result.rows;
@@ -31,7 +31,7 @@ export const quizModel = {
   // Get a quiz by ID
   findQuizById: async (id) => {
     const query = {
-      text: `SELECT * FROM quizzes WHERE id = $1`,
+      text: `SELECT * FROM quizzes WHERE id = $1 AND deleted_at IS NULL`,
       values: [id]
     };
     const result = await client.query(query);
@@ -55,7 +55,7 @@ export const quizModel = {
     fields.push(`updated_at=$${i++}`); values.push(updatedAt);
 
     const query = {
-      text: `UPDATE quizzes SET ${fields.join(', ')} WHERE id=$${i} RETURNING *`,
+      text: `UPDATE quizzes SET ${fields.join(', ')} WHERE id=$${i} AND deleted_at IS NULL RETURNING *`,
       values: [...values, id]
     };
     const result = await client.query(query);
@@ -65,7 +65,7 @@ export const quizModel = {
   // Delete a quiz
   deleteQuiz: async (id) => {
     const query = {
-      text: `DELETE FROM quizzes WHERE id = $1 RETURNING *`,
+      text: `UPDATE quizzes SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
       values: [id]
     };
     const result = await client.query(query);

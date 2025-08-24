@@ -98,7 +98,6 @@ export default class AuthController {
                 }
             });
         } catch (err) {
-            console.error('Login error:', err);
             return res.status(500).json({ success: false, message: 'Server error' });
         }
     }
