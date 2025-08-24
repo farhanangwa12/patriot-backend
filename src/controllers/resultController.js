@@ -12,7 +12,10 @@ export default class ResultController {
     // Ambil semua result
     async getAllResults(req, res, next) {
         try {
-            const results = await this.resultService.getAllResult();
+
+            const userId = req.user.id; // atau req.user.id (tergantung schema User)
+          
+            const results = await this.resultService.getAllResult(userId);
             return res.status(200).json({
                 success: true,
                 message: 'Berhasil mengambil semua result',

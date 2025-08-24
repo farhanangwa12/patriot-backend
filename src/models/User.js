@@ -24,8 +24,9 @@ export const userModel = {
 
 
         const result = await client.query(query);
-        console.log(query);
+    
         const user = result.rows[0];
+     
         if (user) {
             return user;
         } else {

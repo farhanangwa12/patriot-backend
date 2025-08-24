@@ -243,9 +243,9 @@ class ResultService {
     }
 
 
-    async getAllResult() {
+    async getAllResult(id) {
         try {
-            const result = await quizSessionModel.findQuizSessionsByUserId(1);
+            const result = await quizSessionModel.findQuizSessionsByUserId(id);
 
             return result;
 

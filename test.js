@@ -24,7 +24,7 @@ async function testsendmail() {
 
         if (response.ok) {
             const data = await response.json();
-            console.log("Response:", data);
+      
         } else {
             console.error("❌ Gagal kirim email. Status:", response.status);
             const errorData = await response.json();

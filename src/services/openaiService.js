@@ -123,7 +123,7 @@ export const openAiService = {
 
     const reply = completion.choices[0].message.content;
 
-    console.log('ai:',reply);
+
     return reply;
   }
 };
