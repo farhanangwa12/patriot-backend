@@ -5,15 +5,16 @@ export const quizModel = {
   createQuiz: async ({
     title = 'Quiz Patriotisme',
     description,
+    topic = 'patriotisme',
     question_statuses = [],
     total_questions = 10
   }) => {
     const query = {
       text: `
-        INSERT INTO quizzes (title, description, question_statuses, total_questions) 
-        VALUES ($1, $2, $3, $4) 
+        INSERT INTO quizzes (title, description, topic, question_statuses, total_questions) 
+        VALUES ($1, $2, $3, $4, $5) 
         RETURNING *`,
-      values: [title, description, JSON.stringify(question_statuses), total_questions]
+      values: [title, description, topic, JSON.stringify(question_statuses), total_questions]
     };
     const result = await client.query(query);
     return result.rows[0];
@@ -50,8 +51,8 @@ export const quizModel = {
 
 
 
-  // Update a quiz
-  updateQuiz: async ({ id, title, description, question_statuses, total_questions }) => {
+  // Update quiz
+  updateQuiz: async ({ id, title, description, topic, question_statuses, total_questions }) => {
     const updatedAt = new Date();
     const fields = [];
     const values = [];
@@ -59,9 +60,10 @@ export const quizModel = {
 
     if (title) { fields.push(`title=$${i++}`); values.push(title); }
     if (description) { fields.push(`description=$${i++}`); values.push(description); }
+    if (topic) { fields.push(`topic=$${i++}`); values.push(topic); }
     if (question_statuses) {
       fields.push(`question_statuses=$${i++}`);
-      values.push(JSON.stringify(question_statuses));  // ⬅️ stringify dulu
+      values.push(JSON.stringify(question_statuses));
     }
     if (total_questions) { fields.push(`total_questions=$${i++}`); values.push(total_questions); }
     fields.push(`updated_at=$${i++}`); values.push(updatedAt);

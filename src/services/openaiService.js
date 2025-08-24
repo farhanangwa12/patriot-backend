@@ -2,67 +2,42 @@ import OpenAI from "openai";
 
 
 export const openAiService = {
-  generateQuiz: async ({ total_soal, status_soal }) => {
+  generateQuiz: async ({ total_soal, topik, status_soal }) => {
     const openai = new OpenAI({
       baseURL: 'https://api.unli.dev/v1',
       apiKey: process.env.UNLI_API_KEY
     });
 
+    const systemPrompt = `
+      Kamu adalah generator soal otomatis.
 
+      Aturan:
+      - Buatkan soal berbentuk cerita singkat (1–3 kalimat).
+      - Jika "status": "fakta", maka ceritanya harus sesuai fakta sejarah/topik.
+      - Jika "status": "bukan_fakta", maka ceritanya harus memuat informasi keliru.
+      - Setiap soal harus mengandung minimal 1 kata/tema dari field topik.
+      - Akhiri setiap soal dengan sebuah pertanyaan.
+      - Field "fakta" diisi dengan jawaban/koreksi singkat (1–2 kalimat).
+      - Output hanya dalam format JSON array dengan struktur:
+      [
+        { "soal": "cerita + pertanyaan?", "fakta": "isi fakta unik atau koreksi" }
+      ]
+      - Jangan tambahkan penjelasan di luar JSON.
+      `;
 
-    // const completion = await openai.chat.completions.create({
-    //   messages: [{
-    //     role: "user",
-    //     content: `Buatkan ${total_soal} soal tentang patriotisme Indonesia.
-    // Saya akan memberikan input JSON yang berisi status (fakta / bukan_fakta).
+    const userPrompt = (total_soal, topik, data) => `
+      Buatkan total ${total_soal} soal.
+      Topik: ${topik}
+      Data input: ${JSON.stringify(data)}
+      `;
 
-    // Jika status = "fakta", maka buat soal berbentuk cerita singkat (1–3 kalimat) yang sesuai fakta sejarah patriotisme Indonesia, lalu akhiri dengan pertanyaan. Jawaban/koreksi ditulis di field fakta.
-
-    // Jika status = "bukan_fakta", maka buat soal berbentuk cerita singkat (1–3 kalimat) yang berisi informasi salah/melenceng, lalu akhiri dengan pertanyaan. Koreksi ditulis di field fakta.
-
-    // Format output HARUS JSON array dengan struktur:
-
-    // [
-    //   { "soal": "cerita + pertanyaan?", "fakta": "isi fakta unik atau koreksi" },
-    //   { "soal": "cerita + pertanyaan?", "fakta": "isi fakta unik atau koreksi" }
-    // ]
-
-
-    // Jangan tambahkan penjelasan di luar JSON.
-
-
-    // input saya: [ { "status": "fakta" }, { "status": "bukan_fakta" }, { "status": "fakta" }, { "status": "fakta" }, { "status": "bukan_fakta" }, { "status": "fakta" }, { "status": "fakta" }, { "status": "bukan_fakta" }, { "status": "fakta" }, { "status": "bukan_fakta" } ]`
-    //   }],
-    //   model: "auto"
-
-    // });
     const completion = await openai.chat.completions.create({
-      messages: [{
-        role: "user",
-        content: `Buatkan ${total_soal} soal tentang patriotisme Indonesia.
-    Saya akan memberikan input JSON yang berisi status (fakta / bukan_fakta).
-
-    Jika status = "fakta", maka buat soal berbentuk cerita singkat (1–3 kalimat) yang sesuai fakta sejarah patriotisme Indonesia, lalu akhiri dengan pertanyaan. Jawaban/koreksi ditulis di field fakta.
-
-    Jika status = "bukan_fakta", maka buat soal berbentuk cerita singkat (1–3 kalimat) yang berisi informasi salah/melenceng, lalu akhiri dengan pertanyaan. Koreksi ditulis di field fakta.
-
-    Format output HARUS JSON array dengan struktur:
-
-    [
-      { "soal": "cerita + pertanyaan?", "fakta": "isi fakta unik atau koreksi" },
-      { "soal": "cerita + pertanyaan?", "fakta": "isi fakta unik atau koreksi" }
-    ]
-
-
-    Jangan tambahkan penjelasan di luar JSON.
-
-
-    input saya: ${status_soal}`
-      }],
-      model: "auto"
-
+      model: "auto",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt(total_soal, topik, status_soal) }
+      ]
     });
-
 
     // Ambil hasil string dari AI
     const raw = completion.choices[0].message.content;

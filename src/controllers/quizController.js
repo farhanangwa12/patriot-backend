@@ -33,13 +33,13 @@ export default class QuizController {
     // body: { title, topic, questions, ... }
     async createQuizez(req, res, next) {
         try {
-            const { title, description, question_statuses, total_questions } = req.body;
+            const { title, description, topic, question_statuses, total_questions } = req.body;
 
             // simple validation
-            if (!title || !description || !question_statuses || !total_questions) {
+            if (!title || !description || !topic || !question_statuses || !total_questions) {
                 return res.status(400).json({
                     success: false,
-                    message: 'title, description, question_statuses, total_questions wajib ada'
+                    message: 'title, description, topic, question_statuses, total_questions wajib ada'
                 });
             }
 
@@ -47,6 +47,7 @@ export default class QuizController {
             const created = await this.quizService.createQuizez({
                 title,
                 description,
+                topic,
                 question_statuses,
                 total_questions
             });
@@ -91,28 +92,44 @@ export default class QuizController {
     async updateQuizez(req, res, next) {
         try {
             const id = req.params.id;
-            if (!id) return res.status(400).json({ success: false, message: 'Missing id to update' });
+            if (!id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Missing id to update'
+                });
+            }
 
-            const { title, description, question_statuses, total_questions } = req.body;
+            const { title, description, topic, question_statuses, total_questions } = req.body;
 
+            // panggil service
+            const updated = await this.quizService.updateQuiz(id, {
+                title,
+                description,
+                topic,
+                question_statuses,
+                total_questions
+            });
 
+            if (!updated) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Quiz not found'
+                });
+            }
 
-            const updated = await this.quizService.updateQuiz(id, { title, description, question_statuses, total_questions });
-
-
-            if (!updated) return res.status(404).json({ success: false, message: 'Quiz not found' });
-
-
+            // Hapus semua question lama lalu buat ulang
             await this.quizService.deleteQuestionByQuizId(id);
-            await this.quizService.createQuestion({ id: updated.id });
+            await this.quizService.createQuestion({ id: updated.id, topic: updated.topic });
 
-
-
-            return res.status(200).json({ success: true, data: updated });
+            return res.status(200).json({
+                success: true,
+                data: updated
+            });
         } catch (error) {
             next(error);
         }
     }
+
 
 
     // GET /get-quizez/:id

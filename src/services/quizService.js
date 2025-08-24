@@ -8,32 +8,40 @@ class QuizService {
     try {
       // Validasi input
       if (!id) {
-        throw new Error('id Quiz topic wajib ada');
+        throw new Error('id Quiz wajib ada');
       }
 
-      // Buat kuis di database
+      // Ambil kuis dari DB
       const quiz = await quizModel.findQuizById(id);
       if (!quiz) {
-        throw new Error('Quiz tidak ada');
+        throw new Error('Quiz tidak ditemukan');
       }
 
-      // Generate 10 pertanyaan menggunakan OpenAI
-      const questions = await openAiService.generateQuiz({ total_soal: quiz.total_questions, status_soal: quiz.question_statuses });
+      if (!quiz.topic) {
+        throw new Error('Quiz harus memiliki topic sebelum generate pertanyaan');
+      }
 
+      // Generate pertanyaan via OpenAI
+      const questions = await openAiService.generateQuiz({
+        total_soal: quiz.total_questions,
+        status_soal: quiz.question_statuses,
+        topik: quiz.topic
+      });
 
       // Validasi jumlah pertanyaan
       if (!Array.isArray(questions) || questions.length !== quiz.total_questions) {
-        console.error(Array.isArray(questions));
-        throw new Error('AI  harus menghasilkan tepat 10 pertanyaan');
+        console.error("Hasil AI:", questions);
+        throw new Error(`AI harus menghasilkan tepat ${quiz.total_questions} pertanyaan`);
       }
 
-      // Simpan pertanyaan ke database
+      // Simpan pertanyaan ke DB
       const savedQuestions = await Promise.all(
-        questions.map(async (q) => {
+        questions.map(async (q, i) => {
           if (!q.soal || !q.fakta) {
-            throw new Error('Format pertanyaan dari OpenAI tidak valid');
+            throw new Error(`Format pertanyaan dari OpenAI tidak valid di index ${i}`);
           }
-          return await questionModel.createQuestion({
+
+          return questionModel.createQuestion({
             quiz_id: quiz.id,
             question_text: q.soal,
             fact_answer: q.fakta,
@@ -43,22 +51,26 @@ class QuizService {
       );
 
       return { quiz, questions: savedQuestions };
+
     } catch (error) {
-      throw new Error('Gagal membuat kuis: ' + error.message);
+      console.error('Error in createQuestion:', error.message);
+      throw new Error('Gagal membuat pertanyaan: ' + error.message);
     }
   }
 
-  async createQuizez({ title, description, question_statuses, total_questions }) {
+
+  async createQuizez({ title, description, topic, question_statuses, total_questions }) {
     try {
       // Validasi input wajib
-      if (!title || !description || !question_statuses || !total_questions) {
-        throw new Error('title, description, question_statuses, total_questions wajib ada');
+      if (!title || !description || !topic || !question_statuses || !total_questions) {
+        throw new Error('title, description, topic, question_statuses, total_questions wajib ada');
       }
 
       // Panggil model untuk insert
       const quiz = await quizModel.createQuiz({
         title,
         description,
+        topic,
         question_statuses,
         total_questions
       });
@@ -69,6 +81,7 @@ class QuizService {
       throw error;
     }
   }
+
 
   // Mendapatkan semua kuis
   async getAllQuizzes() {
@@ -94,18 +107,31 @@ class QuizService {
   }
 
   // Memperbarui kuis
-  async updateQuiz(id, { title, description, question_statuses, total_questions }) {
+  async updateQuiz(id, { title, description, topic, question_statuses, total_questions }) {
     try {
+      // cek dulu apakah quiz ada
       const quiz = await quizModel.findQuizById(id);
       if (!quiz) {
         throw new Error('Kuis tidak ditemukan');
       }
-      const updatedQuiz = await quizModel.updateQuiz({ id, title, description, question_statuses, total_questions });
+
+      // update quiz dengan field baru
+      const updatedQuiz = await quizModel.updateQuiz({
+        id,
+        title,
+        description,
+        topic,
+        question_statuses,
+        total_questions
+      });
+
       return updatedQuiz;
     } catch (error) {
+      console.error('Error in updateQuiz service:', error.message);
       throw new Error('Gagal memperbarui kuis: ' + error.message);
     }
   }
+
 
   // Menghapus kuis (otomatis menghapus pertanyaan karena ON DELETE CASCADE)
   async deleteQuiz(id) {

@@ -3,11 +3,12 @@ CREATE TABLE quizzes (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL DEFAULT 'Quiz Patriotisme',
     description TEXT,
+    topic VARCHAR(255) DEFAULT 'patriotisme',
     question_statuses JSON,
     total_questions INTEGER DEFAULT 10,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-     deleted_at TIMESTAMP NULL
+    deleted_at TIMESTAMP NULL
 );
 
 
